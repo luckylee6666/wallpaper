@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>音浪壁纸</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
+canvas{display:block}
+#controls{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:10px 14px;background:linear-gradient(160deg,rgba(24,30,52,0.72),rgba(10,14,28,0.80));border-radius:22px;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,0.10);box-shadow:0 12px 40px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);z-index:10;transition:opacity .3s,transform .3s}
+#controls.hidden{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(12px)}
+.ctrl-btn{position:relative;width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:13px;border:none;cursor:pointer;background:transparent;transition:all .18s ease}
+.ctrl-btn:hover{background:rgba(255,255,255,0.08);transform:translateY(-2px)}
+.ctrl-btn:active{transform:translateY(0)}
+.ctrl-btn svg{width:20px;height:20px;stroke:rgba(226,234,255,0.66);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:all .18s ease}
+.ctrl-btn:hover svg{stroke:rgba(240,246,255,0.95)}
+.ctrl-btn.active{background:linear-gradient(140deg,rgba(34,211,180,0.16),rgba(99,102,241,0.22));box-shadow:inset 0 0 0 1px rgba(120,190,255,0.25),0 0 18px rgba(64,170,255,0.22)}
+.ctrl-btn.active svg{stroke:url(#ctrlGrad);filter:drop-shadow(0 0 6px rgba(80,200,255,0.55))}
+.ctrl-sep{width:1px;height:22px;background:linear-gradient(rgba(255,255,255,0),rgba(255,255,255,0.16),rgba(255,255,255,0));margin:0 4px}
+.ctrl-btn::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) scale(0.92);background:rgba(12,16,30,0.92);color:rgba(230,240,255,0.9);font-size:11px;letter-spacing:.4px;padding:5px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);white-space:nowrap;opacity:0;pointer-events:none;transition:all .15s ease}
+.ctrl-btn:hover::after{opacity:1;transform:translateX(-50%) scale(1)}
+#theme-label{position:fixed;top:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.35);font-size:13px;letter-spacing:1px;z-index:10;transition:opacity 0.4s;pointer-events:none}
+#clock{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:72px;font-weight:200;color:rgba(255,255,255,0.08);letter-spacing:4px;z-index:5;pointer-events:none;transition:opacity 0.3s}
+#clock .date{font-size:16px;margin-top:4px;font-weight:300;letter-spacing:2px;color:rgba(255,255,255,0.06)}
+#clock.hidden{opacity:0}
+#drop-overlay{position:fixed;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:20;color:rgba(255,255,255,0.5);font-size:20px;pointer-events:none}
+#drop-overlay.active{display:flex}
+#audio-name{position:fixed;bottom:92px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:0.5px;z-index:10;max-width:240px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity 0.3s}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="ctrlGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2ee6b8"/><stop offset="0.5" stop-color="#3fb6ff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs></svg>
+<div id="controls">
+  <button class="ctrl-btn" id="btn-mic" data-tip="麦克风驱动"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M18.5 11a6.5 6.5 0 0 1-13 0"/><line x1="12" y1="17.5" x2="12" y2="21"/></svg></button>
+  <button class="ctrl-btn" id="btn-file" data-tip="播放音乐文件"><svg viewBox="0 0 24 24"><path d="M9 18.5V7c0-.5.34-.93.82-1.03l7.5-1.6c.62-.13 1.18.34 1.18 1.03v10.6"/><circle cx="6.5" cy="18.5" r="2.5"/><circle cx="16" cy="16" r="2.5"/></svg><input type="file" id="file-input" accept="audio/*" style="display:none"></button>
+  <button class="ctrl-btn" id="btn-play" data-tip="播放 / 暂停" style="display:none"><svg id="play-icon" viewBox="0 0 24 24"><path d="M8.5 5.8v12.4c0 .8.85 1.3 1.53.88l9.4-6.2a1.05 1.05 0 0 0 0-1.76l-9.4-6.2A1.03 1.03 0 0 0 8.5 5.8z"/></svg><svg id="pause-icon" viewBox="0 0 24 24" style="display:none;stroke-width:2.6"><line x1="9" y1="5.5" x2="9" y2="18.5"/><line x1="15" y1="5.5" x2="15" y2="18.5"/></svg></button>
+  <div class="ctrl-sep"></div>
+  <button class="ctrl-btn" id="btn-theme" data-tip="切换配色"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 1 9-9.2c0 1.9-1.4 3.2-3.1 3.2h-2c-1.2 0-2 1-1.6 2.1.35.95-.25 2-1.25 2.3-.33.1-.68.2-1.05.2z"/><circle cx="8" cy="10.2" r="1.1"/><circle cx="12.5" cy="7.6" r="1.1"/><circle cx="16.6" cy="10.6" r="1.1"/></svg></button>
+  <button class="ctrl-btn" id="btn-clock" data-tip="显示时钟"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><polyline points="12,7.5 12,12 15.2,13.8"/></svg></button>
+  <button class="ctrl-btn" id="btn-full" data-tip="全屏"><svg id="fs-expand" viewBox="0 0 24 24"><path d="M9 4.5H6.5a2 2 0 0 0-2 2V9"/><path d="M15 4.5h2.5a2 2 0 0 1 2 2V9"/><path d="M9 19.5H6.5a2 2 0 0 1-2-2V15"/><path d="M15 19.5h2.5a2 2 0 0 0 2-2V15"/></svg><svg id="fs-shrink" viewBox="0 0 24 24" style="display:none"><path d="M4.5 9H7a2 2 0 0 0 2-2V4.5"/><path d="M19.5 9H17a2 2 0 0 1-2-2V4.5"/><path d="M4.5 15H7a2 2 0 0 1 2 2v2.5"/><path d="M19.5 15H17a2 2 0 0 0-2 2v2.5"/></svg></button>
+</div>
+<div id="theme-label"></div>
+<div id="clock" class="hidden"><span id="clock-time"></span><div class="date" id="clock-date"></div></div>
+<div id="drop-overlay">拖放音频文件到这里</div>
+<div id="audio-name"></div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+// ═══════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════
+const GRID_SIZE = 80;
+const SPACING = 1.0;
+const BOX_WIDTH = 0.85;
+const MAX_COUNT = GRID_SIZE * GRID_SIZE;
+const FFT_SIZE = 1024;
+
+// ═══════════════════════════════════════
+//  THEMES
+// ═══════════════════════════════════════
+const themes = [
+  { name:'夜色 Nocturnal',
+    uBaseColor1:[0.01,0.02,0.04], uBaseColor2:[0.03,0.05,0.09], uFogColor:[0.01,0.02,0.04],
+    uCoolCore:[0.0,0.3,1.0], uCoolEdge:[0.6,0.2,1.0],
+    uWarmCore:[1.0,0.2,0.1], uWarmEdge:[1.0,0.6,0.0],
+    uRippleColor:[0.2,0.9,1.0], uGlowIntensity:1.0,
+    skyTop:[0.004,0.008,0.028], skyBot:[0.02,0.065,0.14], nebula:1.0,
+    aurora:[[0.05,0.75,0.55],[0.35,0.2,0.95]], auroraIntensity:1.0,
+    starIntensity:1.0, dustIntensity:1.0,
+    bloomStrength:0.42, bloomThreshold:0.72, vignette:0.28 },
+  { name:'霓虹东京 Neon Tokyo',
+    uBaseColor1:[0.01,0.005,0.02], uBaseColor2:[0.04,0.01,0.06], uFogColor:[0.01,0.005,0.02],
+    uCoolCore:[1.0,0.1,0.6], uCoolEdge:[0.6,0.1,1.0],
+    uWarmCore:[0.1,1.0,0.8], uWarmEdge:[0.1,0.4,1.0],
+    uRippleColor:[1.0,0.45,0.75], uGlowIntensity:1.15,
+    skyTop:[0.012,0.004,0.03], skyBot:[0.12,0.02,0.10], nebula:1.2,
+    aurora:[[1.0,0.15,0.55],[0.3,0.1,1.0]], auroraIntensity:1.15,
+    starIntensity:0.7, dustIntensity:1.2,
+    bloomStrength:0.42, bloomThreshold:0.76, vignette:0.34 },
+  { name:'赛博森林 Cyber Forest',
+    uBaseColor1:[0.01,0.02,0.01], uBaseColor2:[0.02,0.05,0.02], uFogColor:[0.01,0.02,0.01],
+    uCoolCore:[0.1,1.0,0.5], uCoolEdge:[0.05,0.5,0.3],
+    uWarmCore:[0.8,1.0,0.1], uWarmEdge:[0.9,0.5,0.1],
+    uRippleColor:[0.6,1.0,0.3], uGlowIntensity:1.1,
+    skyTop:[0.004,0.014,0.006], skyBot:[0.02,0.09,0.04], nebula:0.9,
+    aurora:[[0.1,0.95,0.35],[0.05,0.45,0.5]], auroraIntensity:1.1,
+    starIntensity:0.65, dustIntensity:1.3,
+    bloomStrength:0.42, bloomThreshold:0.76, vignette:0.34 },
+  { name:'水墨 Ink Wash',
+    uBaseColor1:[0.94,0.94,0.94], uBaseColor2:[0.88,0.88,0.88], uFogColor:[0.94,0.94,0.94],
+    uCoolCore:[0.12,0.12,0.14], uCoolEdge:[0.3,0.3,0.35],
+    uWarmCore:[0.15,0.15,0.18], uWarmEdge:[0.4,0.4,0.45],
+    uRippleColor:[0.66,0.74,0.76], uGlowIntensity:1.1,
+    skyTop:[0.93,0.93,0.92], skyBot:[0.80,0.83,0.84], nebula:0.25,
+    aurora:[[0.35,0.42,0.46],[0.55,0.6,0.63]], auroraIntensity:0.0,
+    starIntensity:0.0, dustIntensity:0.12, ink:1,
+    bloomStrength:0.18, bloomThreshold:0.98, vignette:0.14 },
+  { name:'极简单色 Minimal Mono',
+    uBaseColor1:[0.02,0.02,0.02], uBaseColor2:[0.06,0.06,0.06], uFogColor:[0.02,0.02,0.02],
+    uCoolCore:[0.9,0.9,0.9], uCoolEdge:[0.4,0.4,0.4],
+    uWarmCore:[1.0,1.0,1.0], uWarmEdge:[0.7,0.7,0.7],
+    uRippleColor:[1.0,1.0,1.0], uGlowIntensity:0.8,
+    skyTop:[0.008,0.008,0.01], skyBot:[0.05,0.05,0.06], nebula:0.5,
+    aurora:[[0.85,0.85,0.9],[0.35,0.35,0.4]], auroraIntensity:0.5,
+    starIntensity:0.85, dustIntensity:0.8,
+    bloomStrength:0.4, bloomThreshold:0.78, vignette:0.36 },
+  { name:'晨曦 Dawn',
+    uBaseColor1:[0.04,0.03,0.06], uBaseColor2:[0.08,0.06,0.12], uFogColor:[0.04,0.03,0.06],
+    uCoolCore:[0.3,0.5,1.0], uCoolEdge:[0.2,0.3,0.7],
+    uWarmCore:[1.0,0.7,0.3], uWarmEdge:[1.0,0.4,0.1],
+    uRippleColor:[0.9,0.6,0.2], uGlowIntensity:1.05,
+    skyTop:[0.02,0.015,0.07], skyBot:[0.28,0.11,0.07], nebula:1.1,
+    aurora:[[1.0,0.55,0.2],[0.35,0.3,0.9]], auroraIntensity:0.9,
+    starIntensity:0.55, dustIntensity:1.0,
+    bloomStrength:0.44, bloomThreshold:0.75, vignette:0.34 },
+];
+let currentTheme = 0;
+try{ const t=parseInt(localStorage.getItem('yinlang-theme')); if(!isNaN(t)&&t>=0&&t<themes.length) currentTheme=t; }catch{}
+
+// ═══════════════════════════════════════
+//  SIMPLEX NOISE (GLSL)
+// ═══════════════════════════════════════
+const NOISE_GLSL = `
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec2 mod289(vec2 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec3 permute(vec3 x){return mod289(((x*34.0)+1.0)*x);}
+float snoise(vec2 v){
+  const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+  vec2 i=floor(v+dot(v,C.yy));
+  vec2 x0=v-i+dot(i,C.xx);
+  vec2 i1=(x0.x>x0.y)?vec2(1.0,0.0):vec2(0.0,1.0);
+  vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;
+  i=mod289(i);
+  vec3 p=permute(permute(i.y+vec3(0.0,i1.y,1.0))+i.x+vec3(0.0,i1.x,1.0));
+  vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);
+  m=m*m;m=m*m;
+  vec3 x2=2.0*fract(p*C.www)-1.0;
+  vec3 h=abs(x2)-0.5;
+  vec3 ox=floor(x2+0.5);
+  vec3 a0=x2-ox;
+  m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
+  vec3 g;
+  g.x=a0.x*x0.x+h.x*x0.y;
+  g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+  return 130.0*dot(m,g);
+}
+float random(vec2 st){return fract(sin(dot(st.xy,vec2(12.9898,78.233)))*43758.5453123);}
+`;
+
+// ═══════════════════════════════════════
+//  VERTEX SHADER (terrain)
+// ═══════════════════════════════════════
+const vertexShader = `
+uniform float uTime;
+uniform float uSubBass;
+uniform float uBass;
+uniform float uLowMid;
+uniform float uMid;
+uniform float uHighMid;
+uniform float uPresence;
+uniform float uBrilliance;
+uniform float uAir;
+uniform float uWarmth;
+uniform float uBrightness;
+uniform float uSharpness;
+uniform float uSmoothness;
+uniform float uDensity;
+uniform float uEnergy;
+uniform float uAmplitude;
+uniform float uKickEnvelope;
+uniform float uPulseWaveProgress;
+uniform float uPulseWaveActive;
+
+struct Ripple {
+  vec2 pos;
+  float time;
+  float strength;
+  float isActive;
+  float rippleType;
+};
+uniform Ripple uRipples[10];
+
+varying vec2 vUv;
+varying float vElevation;
+varying float vDistance;
+varying vec2 vRippleAnim;
+varying vec3 vNormal;
+varying float vRelativeY;
+varying vec2 vInstancePos;
+varying float vPulseWaveLight;
+
+${NOISE_GLSL}
+
+void main(){
+  vUv=uv;
+  vNormal=normal;
+
+  vec4 instancePos=instanceMatrix*vec4(0.0,0.0,0.0,1.0);
+  vec2 pos2D=instancePos.xz;
+  vInstancePos=pos2D;
+
+  float centerDist=length(pos2D);
+  vDistance=centerDist;
+
+  float rnd=random(pos2D);
+
+  // ── 1. Idle Background ──
+  vec2 movingPos=pos2D*0.05+vec2(uTime*0.1,uTime*0.05);
+  float baseNoise=(snoise(movingPos)+1.0)*0.5;
+  float wave=sin(pos2D.x*0.15+pos2D.y*0.1-uTime*0.6)*0.5+0.5;
+  float globalFalloff=smoothstep(55.0,25.0,centerDist);
+  float idleElevation=mix(baseNoise,wave,uSmoothness*0.5+0.2)*0.8*globalFalloff;
+
+  // ── 2. Frequency Regions ──
+  float subRegion=smoothstep(25.0,0.0,centerDist);
+  float subLift=uSubBass*subRegion*5.0;
+
+  float bassNoise=snoise(pos2D*0.1-vec2(0.0,uTime*0.2));
+  float bassRegion=smoothstep(35.0,5.0,centerDist+bassNoise*5.0);
+  float bassLift=uBass*bassRegion*(smoothstep(0.0,1.0,rnd+uDensity*0.5))*4.0;
+
+  float lowMidNoise=snoise(pos2D*0.05+vec2(uTime*0.1,0.0));
+  float lowMidLift=uLowMid*(lowMidNoise*0.5+0.5)*2.5;
+
+  float riverFlow=sin(pos2D.x*0.2+pos2D.y*0.2+snoise(pos2D*0.1)*2.0-uTime*2.0);
+  float midLift=uMid*max(0.0,riverFlow)*3.0;
+
+  float highMidRegion=smoothstep(10.0,45.0,centerDist);
+  float highMidLift=0.0;
+  if(fract(rnd*13.3)>0.8){
+    highMidLift=uHighMid*highMidRegion*fract(rnd*7.7)*2.5;
+  }
+
+  float audioElevation=subLift+bassLift+lowMidLift+midLift+highMidLift;
+
+  if(rnd>0.99){
+    audioElevation+=uEnergy*5.0;
+  }
+
+  audioElevation+=uKickEnvelope*subRegion*3.0;
+  audioElevation*=globalFalloff;
+  audioElevation=max(0.0,audioElevation-0.15);
+  audioElevation*=uAmplitude;
+
+  float elevation=idleElevation+audioElevation;
+
+  // ── 3. Ripples ──
+  float rippleElevation=0.0;
+  float rippleIntensityNormal=0.0;
+  float rippleIntensityWhite=0.0;
+
+  for(int i=0;i<10;i++){
+    if(uRipples[i].isActive>0.0){
+      float dist=length(pos2D-uRipples[i].pos);
+      float timeSince=uTime-uRipples[i].time;
+      float curSpeed=15.0;float curWidth=3.0;float curFadeDist=15.0;float elevationScale=4.0;
+      if(uRipples[i].rippleType>0.5){
+        curSpeed=20.0;curWidth=1.0;curFadeDist=8.0;elevationScale=1.0;
+      }
+      float waveRadius=timeSince*curSpeed;
+      float d2=dist-waveRadius;
+      float rippleWave=exp(-d2*d2/curWidth);
+      float fade=exp(-waveRadius/curFadeDist);
+      float rPulse=rippleWave*fade*uRipples[i].strength;
+      rippleElevation+=rPulse*elevationScale;
+      if(uRipples[i].rippleType>0.5){rippleIntensityWhite+=rPulse;}
+      else{rippleIntensityNormal+=rPulse;}
+    }
+  }
+
+  elevation+=rippleElevation;
+  vRippleAnim=vec2(clamp(rippleIntensityNormal,0.0,1.0),clamp(rippleIntensityWhite,0.0,1.0));
+  vElevation=elevation;
+
+  // ── ORIGINAL: Pulse Light Wave ──
+  // A band of light that sweeps across terrain on kick beats
+  vPulseWaveLight=0.0;
+  if(uPulseWaveActive>0.5){
+    float waveCenter=uPulseWaveProgress*80.0;
+    float distToWave=centerDist-waveCenter;
+    float bandWidth=4.0;
+    float inBand=exp(-distToWave*distToWave/bandWidth);
+    vPulseWaveLight=inBand*(1.0-smoothstep(55.0,75.0,centerDist));
+  }
+
+  float yPos=position.y+0.5;
+  vRelativeY=yPos;
+
+  float totalHeight=1.0+elevation;
+  vec3 pos=position;
+  pos.y=-0.5+yPos*totalHeight;
+
+  vec4 worldPosition=modelMatrix*instanceMatrix*vec4(pos,1.0);
+  gl_Position=projectionMatrix*viewMatrix*worldPosition;
+}
+`;
+
+// ═══════════════════════════════════════
+//  FRAGMENT SHADER (terrain)
+// ═══════════════════════════════════════
+const fragmentShader = `
+uniform float uTime;
+uniform float uPresence;
+uniform float uBrilliance;
+uniform float uAir;
+uniform float uWarmth;
+uniform float uBrightness;
+uniform float uSharpness;
+uniform float uIdleGlow;
+uniform float uInk;   // 1=浅色水墨主题:发光项反相成墨色(纸上加墨,不是夜里加光)
+
+uniform vec3 uBaseColor1;
+uniform vec3 uBaseColor2;
+uniform vec3 uFogColor;
+uniform vec3 uCoolCore;
+uniform vec3 uCoolEdge;
+uniform vec3 uWarmCore;
+uniform vec3 uWarmEdge;
+uniform vec3 uRippleColor;
+uniform float uGlowIntensity;
+
+varying vec2 vUv;
+varying float vElevation;
+varying float vDistance;
+varying vec2 vRippleAnim;
+varying vec3 vNormal;
+varying float vRelativeY;
+varying vec2 vInstancePos;
+varying float vPulseWaveLight;
+
+${NOISE_GLSL}
+
+void main(){
+  bool isTop=vNormal.y>0.5;
+  float distFromTop=1.0-vRelativeY;
+  float rnd=random(vInstancePos);
+  float centerDist=length(vInstancePos);
+  float inkFlip=1.0-uInk*1.6;   // 深色主题=1(加光),水墨=-0.6(落墨)
+
+  float normElevation=clamp(vElevation/11.0,0.0,1.0);
+
+  vec3 cBase1=uBaseColor1;
+  vec3 cBase2=uBaseColor2;
+
+  float warmBlend=smoothstep(0.0,1.0,uWarmth*1.5+(0.5-centerDist/80.0));
+  vec3 zoneCore=mix(uCoolCore,uWarmCore,warmBlend);
+  vec3 zoneEdge=mix(uCoolEdge,uWarmEdge,warmBlend);
+
+  // 颜色随高度走连贯渐变:低处贴近底色,升高依次点亮 edge→core;每格只留细微明度差
+  float tileVar=1.0+(fract(rnd*11.0)-0.5)*0.22;
+  vec3 heightGrad=mix(zoneEdge,zoneCore,smoothstep(0.12,0.8,normElevation));
+
+  float distFade=1.0-smoothstep(40.0,75.0,centerDist);
+
+  vec3 brightCool=mix(uCoolCore,vec3(1.0),0.24);
+  heightGrad=mix(heightGrad,brightCool,uBrightness*0.35);
+
+  vec3 currentGlow=mix(cBase2,heightGrad*tileVar,smoothstep(0.02,0.55,normElevation))*uGlowIntensity*distFade;
+
+  currentGlow=mix(currentGlow,uRippleColor,vRippleAnim.x*0.65);
+  currentGlow=mix(currentGlow,vec3(1.0),vRippleAnim.y*0.7);
+
+  // ── ORIGINAL: Pulse Light Wave glow ──
+  // Adds a sweeping band of bright light across the terrain
+  vec3 pulseLight=mix(uCoolCore,uWarmCore,warmBlend)*1.5;
+  currentGlow+=pulseLight*vPulseWaveLight*1.1;
+
+  vec3 bodyColor=mix(cBase1,cBase2,vRelativeY*distFade);
+  vec3 finalColor;
+
+  if(isTop){
+    float topIntensity=smoothstep(0.0,0.4,normElevation);
+    float twinkleDistFalloff=smoothstep(60.0,30.0,centerDist);
+    float twinkleMultiplier=mix(twinkleDistFalloff,1.0,smoothstep(0.01,0.1,normElevation));
+
+    bool isSparkleTarget=fract(rnd*31.0)>0.95;
+    if(isSparkleTarget&&normElevation<0.1){
+      topIntensity+=uAir*2.0*twinkleMultiplier;
+    }
+
+    finalColor=mix(cBase2,currentGlow,topIntensity);
+
+    float edgeX=smoothstep(0.05,0.01,vUv.x)+smoothstep(0.95,0.99,vUv.x);
+    float edgeY=smoothstep(0.05,0.01,vUv.y)+smoothstep(0.95,0.99,vUv.y);
+    float edge=min(edgeX+edgeY,1.0);
+    finalColor+=currentGlow*edge*0.8*(topIntensity+0.3)*inkFlip;
+
+    // Pulse wave makes top faces flash
+    finalColor+=pulseLight*vPulseWaveLight*0.8*(1.0+edge*0.5)*inkFlip;
+
+    float flashChance=smoothstep(0.3,1.0,uPresence);
+    if(fract(rnd*53.0)>0.98-flashChance*0.1){
+      float flashSync=sin(uTime*40.0+rnd*100.0)*0.5+0.5;
+      finalColor+=mix(vec3(1.0),vec3(0.5,1.0,1.0),rnd)*flashSync*uPresence*(1.0+uSharpness*2.0)*twinkleMultiplier*(1.0-uInk*0.9);
+    }
+
+    if(edge>0.5&&fract(rnd*89.0+uTime*2.0)>0.98){
+      finalColor+=vec3(1.0)*uBrilliance*3.0*twinkleMultiplier*(1.0-uInk*0.9);
+    }
+  }else{
+    float verticalFalloff=mix(1.0,3.0,uSharpness);
+    float sideGlow=smoothstep(0.5/verticalFalloff,0.0,distFromTop)*normElevation;
+    if(normElevation<0.02)sideGlow=0.0;
+    finalColor=mix(bodyColor,currentGlow,sideGlow*1.5);
+
+    float rimGlow=smoothstep(0.03,0.0,distFromTop)*normElevation;
+    finalColor+=currentGlow*rimGlow*inkFlip;
+
+    // Pulse wave also lights side faces near top
+    finalColor+=pulseLight*vPulseWaveLight*0.5*rimGlow*inkFlip;
+  }
+
+  // 待机光浪:无音源时缓慢流过地面的柔光,有音乐时由 JS 侧淡出;水墨主题下是流动墨晕
+  float idleN=snoise(vInstancePos*0.045+vec2(uTime*0.045,uTime*0.028));
+  float idleWave=smoothstep(0.15,0.95,idleN*0.5+0.5);
+  vec3 idleCol=mix(uCoolEdge,uCoolCore,idleWave);
+  finalColor+=idleCol*idleWave*uIdleGlow*(isTop?0.55:0.22)*distFade*inkFlip;
+
+  finalColor+=uRippleColor*vRippleAnim.x*0.45*inkFlip;
+  finalColor+=vec3(1.0)*vRippleAnim.y*0.7*inkFlip;
+
+  float aerialFog=smoothstep(30.0,65.0,vDistance);
+  vec3 atmosphericColor=mix(cBase1,cBase2,0.4);
+  finalColor=mix(finalColor,atmosphericColor,aerialFog*0.35);
+
+  float alphaFade=1.0-smoothstep(55.0,78.0,vDistance);
+  float alphaBlend=1.0-alphaFade;
+  finalColor=mix(finalColor,uFogColor,alphaBlend*0.45);
+
+  gl_FragColor=vec4(finalColor,alphaFade);
+}
+`;
+
+// ═══════════════════════════════════════
+//  FLOATING BLOCK SHADER (unchanged)
+// ═══════════════════════════════════════
+const floatVertShader = `
+uniform float uTime;
+uniform float uPulse;
+varying vec2 vUv;
+varying float vElevation;
+varying float vDistance;
+varying vec2 vRippleAnim;
+varying vec3 vNormal;
+varying float vRelativeY;
+varying vec2 vInstancePos;
+
+void main(){
+  vUv=uv;vNormal=normal;
+  vec4 instancePos=instanceMatrix*vec4(0.0,0.0,0.0,1.0);
+  vInstancePos=instancePos.xz;
+  vDistance=length(instancePos.xz);
+  vRippleAnim=vec2(uPulse*0.8,uPulse*0.3);
+  vElevation=2.5+uPulse*16.0;   // 基础自发光,待机不再是黑块
+  vRelativeY=position.y+0.5;
+  vec4 worldPosition=modelMatrix*instanceMatrix*vec4(position,1.0);
+  gl_Position=projectionMatrix*viewMatrix*worldPosition;
+}
+`;
+
+const floatFragShader = `
+uniform float uTime;
+uniform float uPresence;
+uniform float uBrilliance;
+uniform float uAir;
+uniform float uWarmth;
+uniform float uBrightness;
+uniform float uSharpness;
+uniform vec3 uBaseColor1;
+uniform vec3 uBaseColor2;
+uniform vec3 uFogColor;
+uniform vec3 uCoolCore;
+uniform vec3 uCoolEdge;
+uniform vec3 uWarmCore;
+uniform vec3 uWarmEdge;
+uniform vec3 uRippleColor;
+uniform float uGlowIntensity;
+
+varying vec2 vUv;
+varying float vElevation;
+varying float vDistance;
+varying vec2 vRippleAnim;
+varying vec3 vNormal;
+varying float vRelativeY;
+varying vec2 vInstancePos;
+
+${NOISE_GLSL}
+
+void main(){
+  float rnd=random(vInstancePos);
+  float centerDist=length(vInstancePos);
+  float normElevation=clamp(vElevation/8.0,0.0,1.0);
+  vec3 cBase1=uBaseColor1;
+  vec3 cBase2=uBaseColor2;
+  float warmBlend=smoothstep(0.0,1.0,uWarmth*1.5+(0.5-centerDist/80.0));
+  vec3 zoneCore=mix(uCoolCore,uWarmCore,warmBlend);
+  vec3 zoneEdge=mix(uCoolEdge,uWarmEdge,warmBlend);
+  vec3 targetGlow=mix(zoneCore,zoneEdge,fract(rnd*11.0));
+  float distFade=1.0-smoothstep(40.0,75.0,centerDist);
+  vec3 brightCool=mix(uCoolCore,vec3(1.0),0.24);
+  targetGlow=mix(targetGlow,brightCool,uBrightness*0.6);
+  vec3 currentGlow=mix(cBase2,targetGlow,normElevation)*uGlowIntensity*distFade;
+  currentGlow=mix(currentGlow,uRippleColor,vRippleAnim.x);
+  currentGlow=mix(currentGlow,vec3(1.0),vRippleAnim.y);
+
+  float topIntensity=smoothstep(0.0,0.4,normElevation);
+  vec3 finalColor=mix(cBase2,currentGlow,topIntensity);
+
+  float edgeX=smoothstep(0.05,0.01,vUv.x)+smoothstep(0.95,0.99,vUv.x);
+  float edgeY=smoothstep(0.05,0.01,vUv.y)+smoothstep(0.95,0.99,vUv.y);
+  float edge=min(edgeX+edgeY,1.0);
+  finalColor+=currentGlow*edge*0.8*(topIntensity+0.3);
+
+  float flashChance=smoothstep(0.3,1.0,uPresence);
+  if(fract(rnd*53.0)>0.98-flashChance*0.1){
+    float flashSync=sin(uTime*40.0+rnd*100.0)*0.5+0.5;
+    finalColor+=mix(vec3(1.0),vec3(0.5,1.0,1.0),rnd)*flashSync*uPresence*(1.0+uSharpness*2.0);
+  }
+  if(edge>0.5&&fract(rnd*89.0+uTime*2.0)>0.98){
+    finalColor+=vec3(1.0)*uBrilliance*3.0;
+  }
+
+  float aerialFog=smoothstep(30.0,65.0,vDistance);
+  finalColor=mix(finalColor,mix(cBase1,cBase2,0.4),aerialFog*0.35);
+  float alphaFade=1.0-smoothstep(55.0,78.0,vDistance);
+  finalColor=mix(finalColor,uFogColor,(1.0-alphaFade)*0.45);
+
+  gl_FragColor=vec4(finalColor,alphaFade);
+}
+`;
+
+// ═══════════════════════════════════════
+//  ★ SKY DOME SHADER —— 渐变夜空 + 星云 + 地平线辉光
+// ═══════════════════════════════════════
+const skyVertShader = `
+varying vec3 vDir;
+void main(){
+  vDir = position;
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * wp;
+}
+`;
+
+const skyFragShader = `
+uniform vec3 uSkyTop;
+uniform vec3 uSkyBot;
+uniform float uTime;
+uniform float uEnergy;
+uniform float uNebula;
+varying vec3 vDir;
+${NOISE_GLSL}
+void main(){
+  vec3 dir = normalize(vDir);
+  float grad = pow(clamp(1.0 - dir.y, 0.0, 1.0), 2.4);
+  vec3 col = mix(uSkyTop, uSkyBot, grad);
+  // 星云:两层慢速噪声带
+  float n = snoise(vec2(dir.x * 3.0 + uTime * 0.012, dir.y * 5.0 + dir.z * 2.0));
+  n += 0.5 * snoise(vec2(dir.z * 5.5 - uTime * 0.009, dir.y * 9.0 + dir.x * 3.0 + 3.7));
+  col += uSkyBot * n * 0.10 * uNebula;
+  // 地平线辉光,随音乐能量脉动
+  col += uSkyBot * exp(-abs(dir.y) * 5.5) * (0.42 + uEnergy * 0.55) * uNebula;
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+// ═══════════════════════════════════════
+//  ★ STARFIELD SHADER —— 闪烁星空
+// ═══════════════════════════════════════
+const starVertShader = `
+uniform float uTime;
+uniform float uIntensity;
+uniform float uPresence;
+attribute float aPhase;
+attribute float aSize;
+attribute float aTint;
+varying float vAlpha;
+varying float vTint;
+void main(){
+  float tw = 0.55 + 0.45 * sin(uTime * (0.4 + aPhase * 0.6) + aPhase * 37.0);
+  vAlpha = tw * uIntensity * (0.9 + uPresence * 0.5);
+  vTint = aTint;
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * wp;
+  gl_PointSize = aSize * (1.0 + tw * 0.6);
+}
+`;
+
+const starFragShader = `
+varying float vAlpha;
+varying float vTint;
+void main(){
+  float d = length(gl_PointCoord - 0.5);
+  if(d > 0.5) discard;
+  float a = pow(1.0 - d * 2.0, 2.0);
+  vec3 tint = mix(vec3(0.62, 0.78, 1.0), vec3(1.0, 0.85, 0.7), step(0.5, vTint));
+  vec3 col = mix(vec3(1.0), tint, 0.55);
+  gl_FragColor = vec4(col, vAlpha * a);
+}
+`;
+
+// ═══════════════════════════════════════
+//  ★ AURORA CURTAIN SHADER —— 网格极光帘
+// ═══════════════════════════════════════
+const auroraVertShader = `
+uniform float uTime;
+uniform float uBass;
+uniform float uEnergy;
+uniform float uPhase;
+uniform float uSpan;
+uniform float uBaseH;
+uniform float uHeight;
+uniform float uZBase;
+varying vec2 vUv;
+${NOISE_GLSL}
+void main(){
+  vUv = uv;
+  float t = uv.x;
+  float x = (t - 0.5) * uSpan;
+  // 帘幕摆动:低音加大摆幅
+  float sway = sin(uTime * 0.22 + t * 5.0 + uPhase) * (2.2 + uBass * 3.5)
+             + sin(uTime * 0.13 + t * 11.0 + uPhase * 1.7) * 1.1;
+  float z = uZBase + sin(t * 4.0 + uPhase) * 6.0 + sway;
+  // 底缘起伏,打破水平直线感
+  float lift = snoise(vec2(t * 3.0 + uPhase, uTime * 0.06)) * 1.6
+             + snoise(vec2(t * 1.6 + uPhase * 0.7, uTime * 0.04)) * 2.6;
+  float y = uBaseH + uv.y * (uHeight * (1.0 + uEnergy * 0.55)) + lift;
+  x += sin(uTime * 0.17 + t * 7.0 + uPhase * 2.3) * 1.4;
+  vec4 wp = modelMatrix * vec4(vec3(x, y, z), 1.0);
+  gl_Position = projectionMatrix * viewMatrix * wp;
+}
+`;
+
+const auroraFragShader = `
+uniform float uTime;
+uniform float uPhase;
+uniform float uIntensity;
+uniform float uDrive;
+uniform vec3 uColA;
+uniform vec3 uColB;
+varying vec2 vUv;
+${NOISE_GLSL}
+void main(){
+  float endFade = smoothstep(0.0, 0.10, vUv.x) * smoothstep(1.0, 0.90, vUv.x);
+  float vert = pow(1.0 - vUv.y, 2.0);
+  float lowEdge = exp(-vUv.y * 5.0);
+  // 竖向射线纹理,缓慢流动
+  float rays = 0.6 + 0.4 * sin(vUv.x * 90.0 + snoise(vec2(vUv.x * 6.0, uTime * 0.10 + uPhase)) * 5.0 + uPhase * 13.0);
+  float flow = 0.75 + 0.25 * snoise(vec2(vUv.x * 3.0 - uTime * 0.05, vUv.y * 2.0 + uPhase));
+  // 大尺度亮斑:一条帘上只有 1-2 段发亮,不再整条横贯像山脊
+  float blob = smoothstep(0.15, 0.65, snoise(vec2(vUv.x * 1.5 + uPhase * 3.1, uTime * 0.02)));
+  vec3 col = mix(uColA, uColB, vUv.y);
+  col += uColA * lowEdge * 0.5;
+  float a = vert * endFade * rays * flow * (0.2 + 0.8 * blob) * uIntensity * uDrive;
+  gl_FragColor = vec4(col, a);
+}
+`;
+
+// ═══════════════════════════════════════
+//  ★ DUST MOTES SHADER —— 漂浮微尘
+// ═══════════════════════════════════════
+const dustVertShader = `
+uniform float uTime;
+uniform float uEnergy;
+attribute float aPhase;
+attribute float aSize;
+varying float vAlpha;
+void main(){
+  vec3 p = position;
+  p.x += sin(uTime * 0.11 + aPhase * 7.0) * 2.0;
+  p.y += sin(uTime * 0.16 + aPhase * 13.0) * 1.2;
+  p.z += cos(uTime * 0.09 + aPhase * 5.0) * 2.0;
+  float tw = 0.5 + 0.5 * sin(uTime * (0.6 + aPhase) + aPhase * 31.0);
+  vAlpha = tw * (0.30 + uEnergy * 0.7);
+  vec4 mv = viewMatrix * modelMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = aSize * (1.0 + uEnergy * 0.8) * (140.0 / max(1.0, -mv.z));
+}
+`;
+
+const dustFragShader = `
+uniform vec3 uColor;
+uniform float uIntensity;
+varying float vAlpha;
+void main(){
+  float d = length(gl_PointCoord - 0.5);
+  if(d > 0.5) discard;
+  float a = pow(1.0 - d * 2.0, 2.2);
+  gl_FragColor = vec4(uColor, vAlpha * a * uIntensity);
+}
+`;
+
+// ═══════════════════════════════════════
+//  ★ ORIGINAL: VORTEX PARTICLE SHADER
+// ═══════════════════════════════════════
+const vortexVertShader = `
+uniform float uTime;
+uniform float uBass;
+uniform float uEnergy;
+uniform float uWarmth;
+uniform vec3 uCoolCore;
+uniform vec3 uWarmCore;
+attribute float aAngle;
+attribute float aRadius;
+attribute float aBaseHeight;
+attribute float aSpeed;
+attribute float aSize;
+varying float vAlpha;
+varying vec3 vColor;
+
+void main(){
+  // Spiral vortex: particles orbit upward, faster with bass
+  float currentAngle = aAngle + uTime * aSpeed * (0.5 + uBass * 2.0);
+  float currentRadius = aRadius + sin(uTime * 0.7 + aAngle) * 0.5;
+  float currentHeight = aBaseHeight + uTime * (0.3 + uEnergy * 1.5) * aSpeed;
+
+  // Loop height: when particle goes too high, wrap to bottom
+  currentHeight = mod(currentHeight, 20.0);
+
+  vec3 pos = vec3(
+    cos(currentAngle) * currentRadius,
+    currentHeight,
+    sin(currentAngle) * currentRadius
+  );
+
+  // Alpha: fade near ground and sky
+  vAlpha = smoothstep(0.5, 3.0, currentHeight) * smoothstep(20.0, 16.0, currentHeight);
+  vAlpha *= 0.3 + uEnergy * 0.5;
+
+  // Color: warm/cool spiral with height gradient (theme-driven)
+  vColor = mix(uCoolCore, uWarmCore, uWarmth);
+  // Height-based brightening at mid-levels
+  vColor += vec3(0.2, 0.5, 0.3) * smoothstep(5.0, 10.0, currentHeight) * smoothstep(15.0, 10.0, currentHeight);
+
+  vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  gl_PointSize = aSize * (0.5 + uEnergy * 1.0) * (200.0 / length(worldPosition.xyz - cameraPosition));
+}
+`;
+
+const vortexFragShader = `
+varying float vAlpha;
+varying vec3 vColor;
+
+void main(){
+  // Circular soft particle
+  float dist = length(gl_PointCoord - vec2(0.5));
+  if(dist > 0.5) discard;
+  float softAlpha = pow(1.0 - dist * 2.0, 2.2);
+  gl_FragColor = vec4(vColor, vAlpha * softAlpha);
+}
+`;
+
+// ═══════════════════════════════════════
+//  THREE.JS SETUP
+// ═══════════════════════════════════════
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(...themes[currentTheme].skyTop);
+scene.fog = new THREE.Fog(new THREE.Color(...themes[currentTheme].uFogColor), 30, 90);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.5, 300);
+// 相机拉远抬高地平线:天空/极光占上半幅,地形铺开成"大地"而不是怼脸的方块堆
+camera.position.set(34, 13, 34);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+controls.minDistance = 5;
+controls.maxDistance = 80;
+controls.maxPolarAngle = Math.PI / 2 - 0.05;
+controls.target.set(0, 2.5, 0);
+
+// ── Lighting ──
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const dirLight = new THREE.DirectionalLight(0xaabbcc, 0.6);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
+
+// ═══════════════════════════════════════
+//  TERRAIN — InstancedMesh + Custom Shader
+// ═══════════════════════════════════════
+const terrainGeo = new THREE.BoxGeometry(BOX_WIDTH, 1, BOX_WIDTH);
+
+function createRippleData(){
+  return new Array(10).fill(null).map(()=>({
+    pos:new THREE.Vector2(), time:-100, strength:0, isActive:0, rippleType:0
+  }));
+}
+
+const terrainMat = new THREE.ShaderMaterial({
+  uniforms:{
+    uTime:{value:0},
+    uSubBass:{value:0}, uBass:{value:0}, uLowMid:{value:0}, uMid:{value:0}, uHighMid:{value:0},
+    uPresence:{value:0}, uBrilliance:{value:0}, uAir:{value:0},
+    uWarmth:{value:0}, uBrightness:{value:0}, uSharpness:{value:0},
+    uSmoothness:{value:0.5}, uDensity:{value:0.5}, uEnergy:{value:0},
+    uAmplitude:{value:1.0}, uKickEnvelope:{value:0}, uIdleGlow:{value:0},
+    uInk:{value:themes[currentTheme].ink||0},
+    uPulseWaveProgress:{value:0}, uPulseWaveActive:{value:0},
+    uRipples:{value:createRippleData()},
+    uBaseColor1:{value:new THREE.Color(...themes[currentTheme].uBaseColor1)},
+    uBaseColor2:{value:new THREE.Color(...themes[currentTheme].uBaseColor2)},
+    uFogColor:{value:new THREE.Color(...themes[currentTheme].uFogColor)},
+    uCoolCore:{value:new THREE.Color(...themes[currentTheme].uCoolCore)},
+    uCoolEdge:{value:new THREE.Color(...themes[currentTheme].uCoolEdge)},
+    uWarmCore:{value:new THREE.Color(...themes[currentTheme].uWarmCore)},
+    uWarmEdge:{value:new THREE.Color(...themes[currentTheme].uWarmEdge)},
+    uRippleColor:{value:new THREE.Color(...themes[currentTheme].uRippleColor)},
+    uGlowIntensity:{value:themes[currentTheme].uGlowIntensity},
+  },
+  vertexShader,
+  fragmentShader,
+  transparent:true,
+  side:THREE.DoubleSide,
+});
+
+const terrain = new THREE.InstancedMesh(terrainGeo, terrainMat, MAX_COUNT);
+const tempMatrix = new THREE.Matrix4();
+const offset = (GRID_SIZE * SPACING) / 2;
+
+for(let x=0;x<GRID_SIZE;x++){
+  for(let z=0;z<GRID_SIZE;z++){
+    const i=x*GRID_SIZE+z;
+    const px=x*SPACING-offset;
+    const pz=z*SPACING-offset;
+    tempMatrix.makeTranslation(px, 0.5, pz);
+    terrain.setMatrixAt(i, tempMatrix);
+  }
+}
+terrain.instanceMatrix.needsUpdate=true;
+scene.add(terrain);
+
+// ═══════════════════════════════════════
+//  FLOATING BLOCKS (unchanged from base)
+// ═══════════════════════════════════════
+const FLOAT_COUNT = 40;
+const floatGeo = new THREE.BoxGeometry(1,1,1);
+const floatMat = new THREE.ShaderMaterial({
+  uniforms:{
+    uTime:{value:0}, uPulse:{value:0},
+    uPresence:{value:0}, uBrilliance:{value:0}, uAir:{value:0},
+    uWarmth:{value:0}, uBrightness:{value:0}, uSharpness:{value:0},
+    uBaseColor1:{value:new THREE.Color(...themes[currentTheme].uBaseColor1)},
+    uBaseColor2:{value:new THREE.Color(...themes[currentTheme].uBaseColor2)},
+    uFogColor:{value:new THREE.Color(...themes[currentTheme].uFogColor)},
+    uCoolCore:{value:new THREE.Color(...themes[currentTheme].uCoolCore)},
+    uCoolEdge:{value:new THREE.Color(...themes[currentTheme].uCoolEdge)},
+    uWarmCore:{value:new THREE.Color(...themes[currentTheme].uWarmCore)},
+    uWarmEdge:{value:new THREE.Color(...themes[currentTheme].uWarmEdge)},
+    uRippleColor:{value:new THREE.Color(...themes[currentTheme].uRippleColor)},
+    uGlowIntensity:{value:themes[currentTheme].uGlowIntensity},
+  },
+  vertexShader:floatVertShader,
+  fragmentShader:floatFragShader,
+  transparent:true,
+});
+
+const floatBlocks = new THREE.InstancedMesh(floatGeo, floatMat, FLOAT_COUNT);
+
+const blockData = Array.from({length:FLOAT_COUNT},(_,idx)=>{
+  const ring=idx/FLOAT_COUNT;
+  const angle=ring*Math.PI*2*5.0+Math.sin(idx*12.9898)*0.7;
+  const radius=14+((idx*37)%62);
+  const height=6+((idx*17)%19);
+  return{x:Math.cos(angle)*radius, z:Math.sin(angle)*radius, y:height,
+         baseScale:0.75+((idx*11)%9)*0.05, phase:idx*0.73, rotSpeed:0.18+((idx*7)%10)*0.035};
+});
+
+const floatPulseRef = {current:0};
+scene.add(floatBlocks);
+
+// ═══════════════════════════════════════
+//  ★ SKY DOME —— 渐变夜空穹顶
+// ═══════════════════════════════════════
+const skyMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uSkyTop: { value: new THREE.Color(...themes[currentTheme].skyTop) },
+    uSkyBot: { value: new THREE.Color(...themes[currentTheme].skyBot) },
+    uTime: { value: 0 },
+    uEnergy: { value: 0 },
+    uNebula: { value: themes[currentTheme].nebula },
+  },
+  vertexShader: skyVertShader,
+  fragmentShader: skyFragShader,
+  side: THREE.BackSide,
+  depthWrite: false,
+});
+const skyDome = new THREE.Mesh(new THREE.SphereGeometry(120, 48, 32), skyMat);
+skyDome.renderOrder = -10;
+scene.add(skyDome);
+
+// ═══════════════════════════════════════
+//  ★ STARFIELD —— 缓慢闪烁的星空
+// ═══════════════════════════════════════
+const STAR_COUNT = 650;
+const starPos = new Float32Array(STAR_COUNT * 3);
+const starPhase = new Float32Array(STAR_COUNT);
+const starSize = new Float32Array(STAR_COUNT);
+const starTint = new Float32Array(STAR_COUNT);
+for(let i = 0; i < STAR_COUNT; i++){
+  const a = Math.random() * Math.PI * 2;
+  const yv = 0.06 + Math.random() * 0.94;
+  const rr = Math.sqrt(Math.max(0, 1 - yv * yv));
+  starPos[i*3]   = Math.cos(a) * rr * 105;
+  starPos[i*3+1] = yv * 105;
+  starPos[i*3+2] = Math.sin(a) * rr * 105;
+  starPhase[i] = Math.random() * 10;
+  starSize[i] = 1.0 + Math.random() * 1.9;
+  starTint[i] = Math.random();
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+starGeo.setAttribute('aPhase', new THREE.BufferAttribute(starPhase, 1));
+starGeo.setAttribute('aSize', new THREE.BufferAttribute(starSize, 1));
+starGeo.setAttribute('aTint', new THREE.BufferAttribute(starTint, 1));
+const starMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uIntensity: { value: themes[currentTheme].starIntensity },
+    uPresence: { value: 0 },
+  },
+  vertexShader: starVertShader,
+  fragmentShader: starFragShader,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+scene.add(new THREE.Points(starGeo, starMat));
+
+// ═══════════════════════════════════════
+//  ★ SHOOTING STARS —— 偶发流星
+// ═══════════════════════════════════════
+const METEOR_COUNT = 2;
+const meteors = [];
+for(let i = 0; i < METEOR_COUNT; i++){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0,0,0, 1,0,0]), 3));
+  // 头亮尾黑,加法混合下黑=透明,天然拖尾渐隐
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array([1.6,1.7,2.0, 0,0,0]), 3));
+  const m = new THREE.LineBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const line = new THREE.Line(g, m);
+  line.visible = false;
+  scene.add(line);
+  meteors.push({ line, t0: 0, dur: 1, dir: new THREE.Vector3(), start: new THREE.Vector3(), active: false });
+}
+let nextMeteor = 6;
+function spawnMeteor(time){
+  const m = meteors.find(x => !x.active);
+  if(!m) return;
+  const ang = Math.random() * Math.PI * 2;
+  m.start.set((Math.random() - 0.5) * 140, 45 + Math.random() * 25, (Math.random() - 0.5) * 140);
+  m.dir.set(Math.cos(ang), -(0.35 + Math.random() * 0.3), Math.sin(ang)).normalize();
+  const len = 14 + Math.random() * 10;
+  const p = m.line.geometry.attributes.position.array;
+  p[0] = 0; p[1] = 0; p[2] = 0;
+  p[3] = -m.dir.x * len; p[4] = -m.dir.y * len; p[5] = -m.dir.z * len;
+  m.line.geometry.attributes.position.needsUpdate = true;
+  m.t0 = time; m.dur = 1.0 + Math.random() * 0.6;
+  m.active = true; m.line.visible = true;
+}
+
+// ═══════════════════════════════════════
+//  ★ AURORA CURTAINS —— 极光帘(网格重制版,环绕一圈)
+// ═══════════════════════════════════════
+const AURORA_COUNT = 5;
+const auroraGroup = new THREE.Group();
+const auroraGeo = new THREE.PlaneGeometry(1, 1, 96, 12);
+for(let r = 0; r < AURORA_COUNT; r++){
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 }, uBass: { value: 0 }, uEnergy: { value: 0 }, uDrive: { value: 0.4 },
+      uPhase: { value: r * 2.3 },
+      uSpan: { value: 60 + r * 8 },
+      uBaseH: { value: 14 + r * 3.5 },
+      uHeight: { value: 9 + r * 1.8 },
+      uZBase: { value: -34 - r * 3 },
+      uIntensity: { value: themes[currentTheme].auroraIntensity * 0.35 },
+      uColA: { value: new THREE.Color(...themes[currentTheme].aurora[0]) },
+      uColB: { value: new THREE.Color(...themes[currentTheme].aurora[1]) },
+    },
+    vertexShader: auroraVertShader,
+    fragmentShader: auroraFragShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const curtain = new THREE.Mesh(auroraGeo, mat);
+  curtain.rotation.y = r * (Math.PI * 2 / AURORA_COUNT);
+  curtain.frustumCulled = false;   // 顶点位置全在 shader 里算,禁用视锥剔除
+  auroraGroup.add(curtain);
+}
+scene.add(auroraGroup);
+
+// ═══════════════════════════════════════
+//  ★ DUST MOTES —— 漂浮微尘,增加空间纵深
+// ═══════════════════════════════════════
+const DUST_COUNT = 260;
+const dustPos = new Float32Array(DUST_COUNT * 3);
+const dustPhase = new Float32Array(DUST_COUNT);
+const dustSize = new Float32Array(DUST_COUNT);
+for(let i = 0; i < DUST_COUNT; i++){
+  const a = Math.random() * Math.PI * 2;
+  const r = 6 + Math.random() * 46;
+  dustPos[i*3]   = Math.cos(a) * r;
+  dustPos[i*3+1] = 0.5 + Math.random() * 15;
+  dustPos[i*3+2] = Math.sin(a) * r;
+  dustPhase[i] = Math.random() * 10;
+  dustSize[i] = 1.2 + Math.random() * 2.4;
+}
+const dustGeo = new THREE.BufferGeometry();
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+dustGeo.setAttribute('aPhase', new THREE.BufferAttribute(dustPhase, 1));
+dustGeo.setAttribute('aSize', new THREE.BufferAttribute(dustSize, 1));
+const dustMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uEnergy: { value: 0 },
+    uIntensity: { value: themes[currentTheme].dustIntensity },
+    uColor: { value: new THREE.Color(...themes[currentTheme].uCoolCore) },
+  },
+  vertexShader: dustVertShader,
+  fragmentShader: dustFragShader,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+scene.add(new THREE.Points(dustGeo, dustMat));
+
+// ═══════════════════════════════════════
+//  ★ ORIGINAL: VORTEX PARTICLES
+// ═══════════════════════════════════════
+// 500 particles spiraling upward from terrain center
+const VORTEX_COUNT = 500;
+
+const vortexPositions = new Float32Array(VORTEX_COUNT * 3);
+const vortexAngles = new Float32Array(VORTEX_COUNT);
+const vortexRadii = new Float32Array(VORTEX_COUNT);
+const vortexBaseHeights = new Float32Array(VORTEX_COUNT);
+const vortexSpeeds = new Float32Array(VORTEX_COUNT);
+const vortexSizes = new Float32Array(VORTEX_COUNT);
+
+for(let i=0;i<VORTEX_COUNT;i++){
+  // Spiral distribution: angle increases with index
+  vortexAngles[i] = i * 0.12; // ~6 full turns
+  vortexRadii[i] = 2 + (i / VORTEX_COUNT) * 12 + Math.sin(i * 0.5) * 2;
+  vortexBaseHeights[i] = i * 0.04; // staggered heights
+  vortexSpeeds[i] = 0.3 + Math.sin(i * 0.23) * 0.15 + (i / VORTEX_COUNT) * 0.2;
+  vortexSizes[i] = 2 + Math.sin(i * 0.77) * 1.5;
+  vortexPositions[i*3] = 0;
+  vortexPositions[i*3+1] = 0;
+  vortexPositions[i*3+2] = 0;
+}
+
+const vortexGeo = new THREE.BufferGeometry();
+vortexGeo.setAttribute('position', new THREE.BufferAttribute(vortexPositions, 3));
+vortexGeo.setAttribute('aAngle', new THREE.BufferAttribute(vortexAngles, 1));
+vortexGeo.setAttribute('aRadius', new THREE.BufferAttribute(vortexRadii, 1));
+vortexGeo.setAttribute('aBaseHeight', new THREE.BufferAttribute(vortexBaseHeights, 1));
+vortexGeo.setAttribute('aSpeed', new THREE.BufferAttribute(vortexSpeeds, 1));
+vortexGeo.setAttribute('aSize', new THREE.BufferAttribute(vortexSizes, 1));
+
+const vortexMat = new THREE.ShaderMaterial({
+  uniforms:{
+    uTime:{value:0},
+    uBass:{value:0},
+    uEnergy:{value:0},
+    uWarmth:{value:0},
+    uCoolCore:{value:new THREE.Color(...themes[currentTheme].uCoolCore)},
+    uWarmCore:{value:new THREE.Color(...themes[currentTheme].uWarmCore)},
+  },
+  vertexShader: vortexVertShader,
+  fragmentShader: vortexFragShader,
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+
+const vortexPoints = new THREE.Points(vortexGeo, vortexMat);
+scene.add(vortexPoints);
+
+// ═══════════════════════════════════════
+//  ★ ORIGINAL: LIGHTNING TENDRILS
+// ═══════════════════════════════════════
+// Electric arcs that flash between terrain peaks on kick beats
+const MAX_LIGHTNING = 8;
+const lightningPool = [];
+const lightningMat = new THREE.LineBasicMaterial({
+  color: new THREE.Color(1.35, 1.7, 2.4),   // HDR 亮度,让 bloom 吃到光晕
+  transparent: true,
+  opacity: 0,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+
+for(let i=0;i<MAX_LIGHTNING;i++){
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(12 * 3); // 12 points per arc
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const line = new THREE.Line(geo, lightningMat.clone());
+  line.visible = false;
+  scene.add(line);
+  lightningPool.push({ line, life: 0, maxLife: 0 });
+}
+
+function spawnLightning(){
+  // Find two random "peak" positions on terrain
+  const peaks = [];
+  for(let attempt=0;attempt<20;attempt++){
+    const x = (Math.random() - 0.5) * 60;
+    const z = (Math.random() - 0.5) * 60;
+    peaks.push({x, z});
+  }
+
+  // Pick 2 random peaks
+  const p1 = peaks[Math.floor(Math.random() * peaks.length)];
+  const p2 = peaks[Math.floor(Math.random() * peaks.length)];
+
+  // Height estimate based on energy
+  const h1 = 3 + smoothed.energy * 8 + smoothed.kickEnvelope * 4;
+  const h2 = 3 + smoothed.energy * 6;
+
+  // Find an available lightning slot
+  const slot = lightningPool.find(l => l.life <= 0);
+  if(!slot) return;
+
+  const geo = slot.line.geometry;
+  const pos = geo.attributes.position.array;
+
+  // Build jagged arc: 11 segments with random zags
+  const segments = 11;
+  for(let i=0;i<=segments;i++){
+    const t = i / segments;
+    const baseX = p1.x + (p2.x - p1.x) * t;
+    const baseZ = p1.z + (p2.z - p1.z) * t;
+    const baseY = h1 + (h2 - h1) * t;
+    // Add jagged randomness
+    const jagX = (i > 0 && i < segments) ? (Math.random() - 0.5) * 3 : 0;
+    const jagY = (i > 0 && i < segments) ? (Math.random() - 0.5) * 2 : 0;
+    const jagZ = (i > 0 && i < segments) ? (Math.random() - 0.5) * 3 : 0;
+    pos[i*3]   = baseX + jagX;
+    pos[i*3+1] = baseY + jagY;
+    pos[i*3+2] = baseZ + jagZ;
+  }
+  geo.attributes.position.needsUpdate = true;
+
+  slot.line.visible = true;
+  slot.line.material.opacity = 0.8 + Math.random() * 0.2;
+  slot.life = 0.22; // flash for 220ms
+  slot.maxLife = 0.22;
+}
+
+// ═══════════════════════════════════════
+//  ★ ORIGINAL: PULSE LIGHT WAVE STATE
+// ═══════════════════════════════════════
+const pulseWave = {
+  active: false,
+  progress: 0,     // 0 to 1: how far the wave has traveled
+  startTime: 0,
+  duration: 1.5,   // seconds to sweep across terrain
+};
+
+function triggerPulseWave(time){
+  pulseWave.active = true;
+  pulseWave.progress = 0;
+  pulseWave.startTime = time;
+}
+
+// ═══════════════════════════════════════
+//  ★ ORIGINAL: CAMERA BREATHING STATE
+// ═══════════════════════════════════════
+const cameraBreath = {
+  targetY: 0,
+  baseTargetY: 2.5,
+  pushAmount: 0,
+};
+
+// 待机自动涟漪计时
+let nextIdleRipple = 5;
+
+// ═══════════════════════════════════════
+//  BLOOM POST-PROCESSING
+// ═══════════════════════════════════════
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  themes[currentTheme].bloomStrength, 0.55, themes[currentTheme].bloomThreshold
+);
+composer.addPass(bloomPass);
+
+// ── 最终调色:暗角 + 胶片颗粒 ──
+const GradeShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uVignette: { value: themes[currentTheme].vignette },
+    uGrain: { value: 0.026 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uVignette;
+    uniform float uGrain;
+    varying vec2 vUv;
+    float gHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      float d = distance(vUv, vec2(0.5));
+      float vig = smoothstep(0.88, 0.34, d);
+      c.rgb *= mix(1.0 - uVignette, 1.0, vig);
+      c.rgb += (gHash(vUv * 977.0 + fract(uTime) * 7.13) - 0.5) * uGrain;
+      gl_FragColor = c;
+    }
+  `,
+};
+const gradePass = new ShaderPass(GradeShader);
+composer.addPass(gradePass);
+
+// 主题切换时平滑过渡的视觉参数
+const _themeTmp = new THREE.Color();
+const _white = new THREE.Color(1, 1, 1);
+const visualLerp = {
+  bloomStrength: themes[currentTheme].bloomStrength,
+  bloomThreshold: themes[currentTheme].bloomThreshold,
+  vignette: themes[currentTheme].vignette,
+  starIntensity: themes[currentTheme].starIntensity,
+  dustIntensity: themes[currentTheme].dustIntensity,
+  auroraIntensity: themes[currentTheme].auroraIntensity,
+  nebula: themes[currentTheme].nebula,
+  ink: themes[currentTheme].ink || 0,
+};
+
+// ═══════════════════════════════════════
+//  AUDIO ANALYSIS
+// ═══════════════════════════════════════
+let audioCtx, analyser, freqData;
+let sysActive = false, sysData = null;   // 系统音频模式：频谱由 Rust 侧推送
+let sysSeq = 0, sysSeenSeq = -1;         // 频谱帧号：Rust ~47Hz 推送 vs rAF 60fps，防重复帧把差分归零
+let lastAudioName = '';
+let isPlaying = false;
+let micStream = null;
+let micSource = null;
+let audioSource = null;
+const audioEl = document.createElement('audio');
+
+// ?demo=1 —— 用合成频谱驱动整条分析管线,供开发/预览(无需真实音源)
+const demoMode = new URLSearchParams(location.search).has('demo');
+const demoData = demoMode ? new Uint8Array(512) : null;
+function fillDemoSpectrum(time){
+  const beat = time * 2.0;                          // 120 BPM
+  const kick = Math.exp(-(beat % 1) * 6.0);
+  const hat = Math.exp(-((beat * 2) % 1) * 9.0);
+  for(let i = 0; i < 512; i++){
+    let v = kick * 205 * Math.exp(-i * 0.5);
+    v += 130 * Math.exp(-Math.pow(i - 8 - Math.sin(time * 0.7) * 3, 2) / 20);
+    v += 95 * Math.exp(-Math.pow(i - 30 - 12 * Math.sin(time * 1.3), 2) / 70) * (0.6 + 0.4 * Math.sin(time * 2.1));
+    v += hat * 80 * Math.exp(-Math.pow(i - 120, 2) / 2400);
+    v += Math.random() * 10 * Math.exp(-i * 0.01);
+    demoData[i] = Math.min(255, v | 0);
+  }
+}
+
+const smoothed = {
+  subBass:0, bass:0, lowMid:0, mid:0, highMid:0,
+  presence:0, brilliance:0, air:0,
+  warmth:0, brightness:0, sharpness:0, smoothness:0.5,
+  density:0.5, energy:0, kickEnvelope:0, kickHold:0, kickFired:false,
+};
+
+function initAudio(){
+  if(audioCtx) return;
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = FFT_SIZE;
+  analyser.smoothingTimeConstant = 0.8;
+  analyser.minDecibels = -75;
+  freqData = new Uint8Array(analyser.frequencyBinCount);
+}
+
+function startMic(){
+  initAudio();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  if(micStream){ stopMic(); return; }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    micStream=stream;
+    micSource=audioCtx.createMediaStreamSource(stream);
+    const gain=audioCtx.createGain();
+    gain.gain.value=2.8;
+    micSource.connect(gain);
+    gain.connect(analyser);
+    isPlaying=true;
+    document.getElementById('btn-mic').classList.add('active');
+    emitSourceChanged('mic-on');
+  }).catch(e=>console.warn('Mic error:',e));
+}
+
+function stopMic(){
+  const hadMic=!!micStream;
+  if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}
+  if(micSource){micSource.disconnect();micSource=null;}
+  if(!audioEl.src)isPlaying=false;
+  document.getElementById('btn-mic').classList.remove('active');
+  if(hadMic)emitSourceChanged('mic-off');
+}
+
+// 通知 Rust 侧同步托盘勾选态 / 互斥关闭系统音频
+function emitSourceChanged(state){
+  if(window.__TAURI__)window.__TAURI__.event.emit('source-changed',state);
+}
+
+function loadAudioSrc(src, name){
+  initAudio();
+  stopMic();
+  audioEl.src=src;
+  audioEl.crossOrigin='anonymous';
+
+  if(!audioSource){
+    audioSource=audioCtx.createMediaElementSource(audioEl);
+    audioSource.connect(analyser);
+    audioSource.connect(audioCtx.destination);
+  }
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  audioEl.play();
+  isPlaying=true;
+  lastAudioName=name;
+  document.getElementById('btn-play').style.display='flex';
+  document.getElementById('audio-name').textContent=name;
+  document.getElementById('audio-name').style.opacity='1';
+  emitSourceChanged('file');
+}
+
+function loadAudioFile(file){
+  loadAudioSrc(URL.createObjectURL(file), file.name);
+}
+
+// 无音源时特征缓慢回落，避免画面冻结在最后一帧频谱（如闪电反复触发）
+function decayFeatures(){
+  smoothed.subBass*=0.92;smoothed.bass*=0.92;smoothed.lowMid*=0.92;smoothed.mid*=0.92;
+  smoothed.highMid*=0.92;smoothed.presence*=0.92;smoothed.brilliance*=0.92;smoothed.air*=0.92;
+  smoothed.energy*=0.92;smoothed.sharpness*=0.9;smoothed.kickEnvelope*=0.85;
+}
+
+function analyzeAudio(){
+  let fd;
+  if(demoMode){
+    fillDemoSpectrum(clockRef.elapsedTime);
+    fd=demoData;
+  }else if(sysActive&&sysData){
+    if(sysSeq===sysSeenSeq) return;   // 同一帧频谱只做一次差分（kickFlux/sharpness 依赖帧间差）
+    sysSeenSeq=sysSeq;
+    fd=sysData;
+  }else{
+    if(!analyser||!isPlaying){ decayFeatures(); return; }
+    analyser.getByteFrequencyData(freqData);
+    fd=freqData;
+  }
+  const binCount=fd.length;
+
+  let subBassSum=0, bassSum=0, lowMidSum=0, midSum=0,
+      highMidSum=0, presenceSum=0, brillianceSum=0, airSum=0, energySum=0;
+  let centroidNum=0, centroidDen=0;
+  let jumpVolatility=0;
+
+  for(let i=0;i<binCount;i++){
+    const val=fd[i]/255.0;
+    energySum+=val;
+    centroidNum+=i*val;centroidDen+=val;
+    const prev=smoothed._prevData?smoothed._prevData[i]:0;
+    jumpVolatility+=Math.abs(val-prev);
+    if(i<=1)subBassSum+=val;
+    else if(i<=3)bassSum+=val;
+    else if(i<=7)lowMidSum+=val;
+    else if(i<=18)midSum+=val;
+    else if(i<=46)highMidSum+=val;
+    else if(i<=93)presenceSum+=val;
+    else if(i<=186)brillianceSum+=val;
+    else if(i<=372)airSum+=val;
+  }
+
+  smoothed._prevData=Array.from(fd).map(v=>v/255);
+
+  const energy=energySum/binCount;
+  const subBass=subBassSum/2;
+  const bass=bassSum/2;
+  const lowMid=lowMidSum/4;
+  const mid=midSum/11;
+  const highMid=highMidSum/28;
+  const presence=presenceSum/47;
+  const brilliance=brillianceSum/93;
+  const air=airSum/186;
+
+  const warmth=energySum>0?(subBassSum+bassSum+lowMidSum+midSum)/energySum:0;
+  const brightness=energySum>0?(presenceSum+brillianceSum+airSum)/energySum:0;
+  const sharpness=Math.max(0,brightness-(smoothed._prevBrightness||0))*10;
+  smoothed._prevBrightness=brightness;
+
+  const smoothness=Math.max(0,1.0-(jumpVolatility/binCount)*2.0);
+
+  const activeThreshold=energy*1.5;
+  let activeBands=0;
+  if(subBass>activeThreshold)activeBands++;
+  if(bass>activeThreshold)activeBands++;
+  if(lowMid>activeThreshold)activeBands++;
+  if(mid>activeThreshold)activeBands++;
+  if(highMid>activeThreshold)activeBands++;
+  if(presence>activeThreshold)activeBands++;
+  if(brilliance>activeThreshold)activeBands++;
+  if(air>activeThreshold)activeBands++;
+  const density=activeBands/8;
+
+  const dt=0.15;
+  smoothed.subBass+=(subBass-smoothed.subBass)*dt;
+  smoothed.bass+=(bass-smoothed.bass)*dt;
+  smoothed.lowMid+=(lowMid-smoothed.lowMid)*dt;
+  smoothed.mid+=(mid-smoothed.mid)*dt;
+  smoothed.highMid+=(highMid-smoothed.highMid)*dt;
+  smoothed.presence+=(presence-smoothed.presence)*dt;
+  smoothed.brilliance+=(brilliance-smoothed.brilliance)*dt;
+  smoothed.air+=(air-smoothed.air)*dt;
+  smoothed.warmth+=(warmth-smoothed.warmth)*dt;
+  smoothed.brightness+=(brightness-smoothed.brightness)*dt;
+  smoothed.sharpness+=(sharpness-smoothed.sharpness)*dt;
+  smoothed.smoothness+=(smoothness-smoothed.smoothness)*dt;
+  smoothed.density+=(density-smoothed.density)*dt;
+  smoothed.energy+=(energy-smoothed.energy)*dt;
+
+  // ── Beat detection (Kick) ──
+  const kickEnergy=(subBassSum+bassSum)/4;
+  const prevKick=smoothed._prevKick||0;
+  const kickFlux=kickEnergy-prevKick;
+  smoothed._prevKick=kickEnergy;
+
+  const kickThreshold=Math.max(0.3,smoothed.energy*1.8);
+  if(kickFlux>kickThreshold*0.15&&kickEnergy>kickThreshold&&smoothed.kickHold<=0){
+    smoothed.kickEnvelope=Math.min(1,kickFlux*30);
+    smoothed.kickHold=12;
+    smoothed.kickFired=true;
+  }else{
+    smoothed.kickEnvelope*=0.85;
+    if(smoothed.kickHold>0)smoothed.kickHold--;
+  }
+}
+
+// ═══════════════════════════════════════
+//  RIPPLE SYSTEM
+// ═══════════════════════════════════════
+const ripples = createRippleData();
+let rippleIndex = 0;
+const clockRef = {elapsedTime:0};
+
+function addRipple(x, y, strength, isWhite=false){
+  const idx=rippleIndex;
+  ripples[idx]={
+    pos:new THREE.Vector2(x,y),
+    time:clockRef.elapsedTime,
+    strength:Math.min(strength,3.0),
+    isActive:1,
+    rippleType:isWhite?1:0
+  };
+  rippleIndex=(idx+1)%10;
+}
+
+// Click on terrain → ripple
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+renderer.domElement.addEventListener('click', e=>{
+  mouse.set((e.clientX/window.innerWidth)*2-1,-(e.clientY/window.innerHeight)*2+1);
+  raycaster.setFromCamera(mouse, camera);
+  const hits=raycaster.intersectObject(terrain);
+  if(hits.length>0){
+    const p=hits[0].point;
+    addRipple(p.x, p.z, 0.8, false);
+  }
+});
+
+// ═══════════════════════════════════════
+//  THEME SYSTEM
+// ═══════════════════════════════════════
+const themeLabel = document.getElementById('theme-label');
+
+function setTheme(idx){
+  currentTheme = idx % themes.length;
+  try{ localStorage.setItem('yinlang-theme', currentTheme); }catch{}
+  const t = themes[currentTheme];
+  themeLabel.textContent = t.name;
+  themeLabel.style.opacity = '1';
+  setTimeout(()=>themeLabel.style.opacity='0', 1500);
+}
+
+// ═══════════════════════════════════════
+//  UI HANDLERS
+// ═══════════════════════════════════════
+document.getElementById('btn-mic').addEventListener('click', ()=>{
+  if(micStream) stopMic(); else startMic();
+});
+
+document.getElementById('btn-file').addEventListener('click', ()=>{
+  document.getElementById('file-input').click();
+});
+document.getElementById('file-input').addEventListener('change', e=>{
+  if(e.target.files[0]) loadAudioFile(e.target.files[0]);
+});
+
+const btnPlay = document.getElementById('btn-play');
+btnPlay.addEventListener('click', ()=>{
+  if(audioEl.paused) audioEl.play(); else audioEl.pause();
+});
+audioEl.addEventListener('play', ()=>{
+  isPlaying=true;
+  document.getElementById('play-icon').style.display='none';
+  document.getElementById('pause-icon').style.display='';
+});
+audioEl.addEventListener('pause', ()=>{ isPlaying=micStream?true:false; document.getElementById('play-icon').style.display=''; document.getElementById('pause-icon').style.display='none'; });
+
+document.getElementById('btn-theme').addEventListener('click', ()=>setTheme(currentTheme+1));
+document.getElementById('btn-clock').addEventListener('click', ()=>{
+  document.getElementById('clock').classList.toggle('hidden');
+});
+document.getElementById('btn-full').addEventListener('click', ()=>{
+  if(!document.fullscreenElement){
+    document.body.requestFullscreen();
+    document.getElementById('fs-expand').style.display='none';
+    document.getElementById('fs-shrink').style.display='';
+  }else{
+    document.exitFullscreen();
+    document.getElementById('fs-expand').style.display='';
+    document.getElementById('fs-shrink').style.display='none';
+  }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e=>{
+  if(e.key===' ') { if(audioEl.src) audioEl.paused?audioEl.play():audioEl.pause(); }
+  if(e.key==='f'||e.key==='F') document.getElementById('btn-full').click();
+  if(e.key==='h'||e.key==='H') document.getElementById('controls').classList.toggle('hidden');
+  if(e.key==='t'||e.key==='T') document.getElementById('btn-clock').click();
+  if(e.key>='1'&&e.key<='6') setTheme(parseInt(e.key)-1);
+});
+
+// Drag-drop audio
+const dropOverlay = document.getElementById('drop-overlay');
+document.addEventListener('dragover', e=>{e.preventDefault();dropOverlay.classList.add('active');});
+document.addEventListener('dragleave', ()=>dropOverlay.classList.remove('active'));
+document.addEventListener('drop', e=>{
+  e.preventDefault();dropOverlay.classList.remove('active');
+  const file=e.dataTransfer.files[0];
+  if(file&&file.type.startsWith('audio/')) loadAudioFile(file);
+});
+
+// Clock
+function updateClock(){
+  const now=new Date();
+  const h=String(now.getHours()).padStart(2,'0');
+  const m=String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clock-time').textContent=`${h}:${m}`;
+  const y=now.getFullYear();
+  const mo=String(now.getMonth()+1).padStart(2,'0');
+  const d=String(now.getDate()).padStart(2,'0');
+  document.getElementById('clock-date').textContent=`${y}.${mo}.${d}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Resize
+window.addEventListener('resize', ()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ═══════════════════════════════════════
+//  ANIMATION LOOP
+// ═══════════════════════════════════════
+const clock = new THREE.Clock();
+
+// ★ ORIGINAL: Track kick beats for lightning + pulse wave triggering
+let lastKickTrigger = 0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  clockRef.elapsedTime = clock.getElapsedTime();
+  const time = clockRef.elapsedTime;
+  controls.update();
+
+  // ── Audio analysis ──
+  analyzeAudio();
+
+  // ── 待机呼吸:无音源时画面缓慢起伏,壁纸保持"活着" ──
+  const musicDrive = smoothed.energy * 6 + smoothed.kickEnvelope * 2;
+  const idleAmt = Math.max(0, 1 - musicDrive);
+  const breath = Math.sin(time * 0.22) * 0.5 + 0.5;
+  const idlePulse = idleAmt * (0.16 + breath * 0.22);
+  if(idleAmt > 0.6 && time > nextIdleRipple){
+    const a = Math.random() * Math.PI * 2, d = 5 + Math.random() * 22;
+    addRipple(Math.cos(a) * d, Math.sin(a) * d, 0.25 + Math.random() * 0.3, Math.random() < 0.25);
+    nextIdleRipple = time + 6 + Math.random() * 9;
+  }
+
+  // ── Beat-triggered ripples ── (edge-triggered: one ripple per detected kick)
+  if(smoothed.kickFired){
+    smoothed.kickFired=false;
+    const angle=Math.random()*Math.PI*2;
+    const dist=Math.random()*20;
+    addRipple(Math.cos(angle)*dist, Math.sin(angle)*dist, Math.min(smoothed.kickEnvelope*1.5, 1.3), false);
+  }
+
+  // ★ ORIGINAL: Lightning on kick beats
+  if(smoothed.kickEnvelope > 0.3 && time - lastKickTrigger > 0.2){
+    lastKickTrigger = time;
+    spawnLightning();
+    // Sometimes spawn 2 arcs for extra drama
+    if(smoothed.kickEnvelope > 0.6) spawnLightning();
+  }
+
+  // ★ ORIGINAL: Pulse light wave on strong kicks
+  if(smoothed.kickEnvelope > 0.4 && !pulseWave.active){
+    triggerPulseWave(time);
+  }
+
+  // ── Update terrain shader uniforms ──
+  const mat = terrainMat.uniforms;
+  mat.uTime.value = time;
+  mat.uSubBass.value = smoothed.subBass;
+  mat.uBass.value = smoothed.bass;
+  mat.uLowMid.value = smoothed.lowMid;
+  mat.uMid.value = smoothed.mid + idlePulse * 0.22;
+  mat.uHighMid.value = smoothed.highMid;
+  mat.uPresence.value = smoothed.presence;
+  mat.uBrilliance.value = smoothed.brilliance;
+  mat.uAir.value = smoothed.air + idlePulse * 0.2;
+  mat.uWarmth.value = smoothed.warmth;
+  mat.uBrightness.value = smoothed.brightness;
+  mat.uSharpness.value = smoothed.sharpness;
+  mat.uSmoothness.value = smoothed.smoothness;
+  mat.uDensity.value = smoothed.density;
+  mat.uEnergy.value = smoothed.energy + idlePulse * 0.35;
+  mat.uAmplitude.value = 1.0;
+  mat.uKickEnvelope.value = smoothed.kickEnvelope;
+  mat.uIdleGlow.value = idlePulse;
+  mat.uRipples.value = ripples;
+
+  // ★ ORIGINAL: Pulse light wave update
+  if(pulseWave.active){
+    pulseWave.progress = (time - pulseWave.startTime) / pulseWave.duration;
+    if(pulseWave.progress > 1.0){
+      pulseWave.active = false;
+      pulseWave.progress = 0;
+    }
+  }
+  mat.uPulseWaveProgress.value = pulseWave.progress;
+  mat.uPulseWaveActive.value = pulseWave.active ? 1.0 : 0.0;
+
+  // ── Smooth theme color transition ──
+  const t = themes[currentTheme];
+  const lerpSpeed = 3.0 * dt;
+  const lerpClamp = Math.min(1, Math.max(0, lerpSpeed));
+  mat.uBaseColor1.value.lerp(new THREE.Color(...t.uBaseColor1), lerpClamp);
+  mat.uBaseColor2.value.lerp(new THREE.Color(...t.uBaseColor2), lerpClamp);
+  mat.uFogColor.value.lerp(new THREE.Color(...t.uFogColor), lerpClamp);
+  mat.uCoolCore.value.lerp(new THREE.Color(...t.uCoolCore), lerpClamp);
+  mat.uCoolEdge.value.lerp(new THREE.Color(...t.uCoolEdge), lerpClamp);
+  mat.uWarmCore.value.lerp(new THREE.Color(...t.uWarmCore), lerpClamp);
+  mat.uWarmEdge.value.lerp(new THREE.Color(...t.uWarmEdge), lerpClamp);
+  mat.uRippleColor.value.lerp(new THREE.Color(...t.uRippleColor), lerpClamp);
+  mat.uGlowIntensity.value = THREE.MathUtils.lerp(mat.uGlowIntensity.value, t.uGlowIntensity, lerpClamp);
+
+  scene.background.lerp(_themeTmp.setRGB(...t.skyTop), lerpClamp);
+  scene.fog.color.lerp(new THREE.Color(...t.uFogColor), lerpClamp);
+  skyMat.uniforms.uSkyTop.value.lerp(_themeTmp.setRGB(...t.skyTop), lerpClamp);
+  skyMat.uniforms.uSkyBot.value.lerp(_themeTmp.setRGB(...t.skyBot), lerpClamp);
+  visualLerp.bloomStrength = THREE.MathUtils.lerp(visualLerp.bloomStrength, t.bloomStrength, lerpClamp);
+  visualLerp.bloomThreshold = THREE.MathUtils.lerp(visualLerp.bloomThreshold, t.bloomThreshold, lerpClamp);
+  visualLerp.vignette = THREE.MathUtils.lerp(visualLerp.vignette, t.vignette, lerpClamp);
+  visualLerp.starIntensity = THREE.MathUtils.lerp(visualLerp.starIntensity, t.starIntensity, lerpClamp);
+  visualLerp.dustIntensity = THREE.MathUtils.lerp(visualLerp.dustIntensity, t.dustIntensity, lerpClamp);
+  visualLerp.auroraIntensity = THREE.MathUtils.lerp(visualLerp.auroraIntensity, t.auroraIntensity, lerpClamp);
+  visualLerp.nebula = THREE.MathUtils.lerp(visualLerp.nebula, t.nebula, lerpClamp);
+  visualLerp.ink = THREE.MathUtils.lerp(visualLerp.ink, t.ink || 0, lerpClamp);
+  mat.uInk.value = visualLerp.ink;
+
+  // ── Update floating blocks ──
+  const rawPulse = Math.max(0, Math.min(1, smoothed.kickEnvelope));
+  floatPulseRef.current = THREE.MathUtils.lerp(floatPulseRef.current, rawPulse, Math.min(1, 1 - Math.exp(-18*dt)));
+
+  floatMat.uniforms.uTime.value = time;
+  floatMat.uniforms.uPulse.value = floatPulseRef.current;
+  floatMat.uniforms.uPresence.value = smoothed.presence;
+  floatMat.uniforms.uBrilliance.value = smoothed.brilliance;
+  floatMat.uniforms.uAir.value = smoothed.air;
+  floatMat.uniforms.uWarmth.value = smoothed.warmth;
+  floatMat.uniforms.uBrightness.value = smoothed.brightness;
+  floatMat.uniforms.uSharpness.value = smoothed.sharpness;
+  floatMat.uniforms.uBaseColor1.value.copy(mat.uBaseColor1.value);
+  floatMat.uniforms.uBaseColor2.value.copy(mat.uBaseColor2.value);
+  floatMat.uniforms.uFogColor.value.copy(mat.uFogColor.value);
+  floatMat.uniforms.uCoolCore.value.copy(mat.uCoolCore.value);
+  floatMat.uniforms.uCoolEdge.value.copy(mat.uCoolEdge.value);
+  floatMat.uniforms.uWarmCore.value.copy(mat.uWarmCore.value);
+  floatMat.uniforms.uWarmEdge.value.copy(mat.uWarmEdge.value);
+  floatMat.uniforms.uRippleColor.value.copy(mat.uRippleColor.value);
+  floatMat.uniforms.uGlowIntensity.value = mat.uGlowIntensity.value;
+
+  const pulse = floatPulseRef.current;
+  const dm = new THREE.Matrix4();
+  const dp = new THREE.Vector3();
+  const dr = new THREE.Quaternion();
+  const ds = new THREE.Vector3();
+  const de = new THREE.Euler();
+
+  for(let i=0;i<FLOAT_COUNT;i++){
+    const b=blockData[i];
+    const bob=Math.sin(time*(0.55+b.rotSpeed)+b.phase)*0.45;
+    dp.set(b.x, b.y+bob+pulse*0.9, b.z);
+    de.set(time*b.rotSpeed+b.phase, time*b.rotSpeed*0.7+b.phase, time*b.rotSpeed*0.45+b.phase);
+    dr.setFromEuler(de);
+    // 稳定的装饰浮块:鼓点只轻微放大,不再从尘埃暴涨成巨型白块
+    const scale=b.baseScale*THREE.MathUtils.lerp(0.5,1.25,pulse);
+    ds.set(scale,scale,scale);
+    dm.compose(dp,dr,ds);
+    floatBlocks.setMatrixAt(i,dm);
+  }
+  floatBlocks.instanceMatrix.needsUpdate=true;
+
+  // ── Sky dome / starfield / dust update ──
+  skyMat.uniforms.uTime.value = time;
+  skyMat.uniforms.uEnergy.value = smoothed.energy + idlePulse * 0.4;
+  skyMat.uniforms.uNebula.value = visualLerp.nebula;
+
+  starMat.uniforms.uTime.value = time;
+  starMat.uniforms.uPresence.value = smoothed.presence;
+  starMat.uniforms.uIntensity.value = visualLerp.starIntensity;
+
+  dustMat.uniforms.uTime.value = time;
+  dustMat.uniforms.uEnergy.value = smoothed.energy + idlePulse * 0.5;
+  dustMat.uniforms.uIntensity.value = visualLerp.dustIntensity;
+  dustMat.uniforms.uColor.value.copy(mat.uCoolCore.value).lerp(_white, 0.45);
+
+  // ── Aurora curtain update ──
+  const auroraDrive = 0.30 + smoothed.energy * 1.1 + smoothed.bass * 0.5 + idlePulse * 0.6;
+  auroraGroup.rotation.y = time * 0.012;
+  auroraGroup.children.forEach(curtain => {
+    const u = curtain.material.uniforms;
+    u.uTime.value = time;
+    u.uBass.value = smoothed.bass;
+    u.uEnergy.value = smoothed.energy;
+    u.uDrive.value = auroraDrive;
+    u.uIntensity.value = visualLerp.auroraIntensity * 0.45;
+    u.uColA.value.lerp(_themeTmp.setRGB(...t.aurora[0]), lerpClamp);
+    u.uColB.value.lerp(_themeTmp.setRGB(...t.aurora[1]), lerpClamp);
+  });
+
+  // ── Shooting stars ──
+  if(time > nextMeteor){
+    if(visualLerp.starIntensity > 0.25) spawnMeteor(time);
+    nextMeteor = time + 7 + Math.random() * 14;
+  }
+  meteors.forEach(m => {
+    if(!m.active) return;
+    const k = (time - m.t0) / m.dur;
+    if(k >= 1){ m.active = false; m.line.visible = false; return; }
+    m.line.position.copy(m.start).addScaledVector(m.dir, 40 * k);
+    m.line.material.opacity = Math.sin(Math.PI * k) * 0.9;
+  });
+
+  // ★ ORIGINAL: Vortex particle update
+  vortexMat.uniforms.uTime.value = time;
+  vortexMat.uniforms.uBass.value = smoothed.bass;
+  vortexMat.uniforms.uEnergy.value = smoothed.energy;
+  vortexMat.uniforms.uWarmth.value = smoothed.warmth;
+  vortexMat.uniforms.uCoolCore.value.copy(mat.uCoolCore.value);
+  vortexMat.uniforms.uWarmCore.value.copy(mat.uWarmCore.value);
+
+  // ★ ORIGINAL: Lightning fade-out
+  lightningPool.forEach(slot => {
+    if(slot.life > 0){
+      slot.life -= dt;
+      const flicker = 0.55 + 0.45 * Math.sin(slot.life * 90.0);
+      slot.line.material.opacity = Math.max(0, (slot.life / slot.maxLife) * 0.9 * flicker);
+      if(slot.life <= 0){
+        slot.line.visible = false;
+        slot.line.material.opacity = 0;
+      }
+    }
+  });
+
+  // ★ ORIGINAL: Camera breathing — subtle push/pull synced to bass
+  const breathTarget = smoothed.bass * 0.8 + smoothed.kickEnvelope * 1.5;
+  cameraBreath.targetY = THREE.MathUtils.lerp(cameraBreath.targetY, breathTarget, Math.min(1, 3 * dt));
+  controls.target.y = cameraBreath.baseTargetY + cameraBreath.targetY * 0.3;
+
+  // Auto-rotate speed reacts to energy
+  controls.autoRotateSpeed = 0.4 + smoothed.energy * 1.4 + smoothed.kickEnvelope * 2.5;
+
+  // ── Bloom / 后期 ──
+  bloomPass.strength = visualLerp.bloomStrength + smoothed.energy * 0.4 + smoothed.kickEnvelope * 0.3 + idlePulse * 0.25;
+  bloomPass.threshold = visualLerp.bloomThreshold;
+  gradePass.uniforms.uTime.value = time;
+  gradePass.uniforms.uVignette.value = visualLerp.vignette;
+
+  composer.render();
+}
+
+animate();
+
+// ═══════════════════════════════════════
+//  TAURI 壁纸模式 —— 窗口点击穿透，UI 由托盘菜单接管
+// ═══════════════════════════════════════
+if (window.__TAURI__) {
+  const { listen } = window.__TAURI__.event;
+  const { convertFileSrc } = window.__TAURI__.core;
+
+  document.getElementById('controls').classList.add('hidden');
+
+  listen('set-theme', e => setTheme(e.payload));
+  listen('toggle-clock', () => document.getElementById('clock').classList.toggle('hidden'));
+  listen('toggle-mic', () => { if (micStream) stopMic(); else startMic(); });
+  listen('toggle-play', () => {
+    if (!audioEl.src) return;
+    if (audioEl.paused) { audioEl.play(); emitSourceChanged('file'); }
+    else audioEl.pause();
+  });
+  listen('interactive-mode', e => {
+    document.getElementById('controls').classList.toggle('hidden', !e.payload);
+  });
+  listen('play-audio-file', e => {
+    const path = e.payload;
+    loadAudioSrc(convertFileSrc(path), path.split(/[\\/]/).pop());
+  });
+
+  // 系统音频模式：Rust 侧 ScreenCaptureKit 采集 → FFT → base64 推 512 bin 频谱
+  const audioName = document.getElementById('audio-name');
+  let preSysSource = null;   // 开启系统音频前的音源，关闭时恢复
+  let errTimer = null;
+
+  listen('system-audio', e => {
+    const on = !!e.payload;
+    if (on === sysActive) return;
+    sysActive = on;
+    if (on) {
+      if (!sysData) sysData = new Uint8Array(512);
+      sysData.fill(0); sysSeq++;   // 清掉上一次会话的残留频谱
+      preSysSource = micStream ? 'mic' : (audioEl.src && !audioEl.paused ? 'file' : null);
+      stopMic();
+      if (audioEl.src && !audioEl.paused) audioEl.pause();
+      audioName.textContent = '系统音频 · 全局律动';
+      audioName.style.opacity = '1';
+    } else {
+      const prev = preSysSource; preSysSource = null;
+      if (prev === 'file' && audioEl.src) {
+        audioEl.play();
+        audioName.textContent = lastAudioName;
+      } else if (prev === 'mic' && !micStream && (!audioEl.src || audioEl.paused)) {
+        startMic();
+        audioName.style.opacity = '0';
+      } else {
+        audioName.style.opacity = '0';
+      }
+    }
+  });
+  listen('system-audio-spectrum', e => {
+    if (!sysData) return;
+    const bin = atob(e.payload);
+    if (bin.length !== sysData.length) return;   // 尺寸不符直接丢弃，防静默错位
+    for (let i = 0; i < bin.length; i++) sysData[i] = bin.charCodeAt(i);
+    sysSeq++;
+  });
+  listen('system-audio-error', e => {
+    sysActive = false;
+    audioName.textContent = e.payload;
+    audioName.style.opacity = '1';
+    clearTimeout(errTimer);
+    errTimer = setTimeout(() => audioName.style.opacity = '0', 6000);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for all wallpaper windows (main + per-monitor wp*)",
+  "windows": ["main", "wp*"],
+  "permissions": [
+    "core:default"
+  ]
+}
