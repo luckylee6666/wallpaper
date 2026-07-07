@@ -1,7 +1,70 @@
-# Tauri + Vanilla
+<div align="center">
 
-This template should help get you started developing with Tauri in vanilla HTML, CSS and Javascript.
+<img src="src-tauri/app-icon.png" width="128" alt="音浪壁纸图标">
 
-## Recommended IDE Setup
+# 音浪壁纸
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+**让桌面随音乐呼吸的 macOS 动态壁纸**
+
+中文 | [English](README.en.md)
+
+</div>
+
+---
+
+音浪壁纸把一片 three.js 渲染的发光体素地形铺在你的桌面上：极光在天际流动、星空缓慢闪烁、流星偶尔划过。放一首歌，整片大地随节奏起伏——低音掀起地面的浪，鼓点炸开涟漪与闪电，高频让星尘闪烁。不放歌的时候，它也在缓慢地呼吸。
+
+## 功能
+
+- **三种音源**
+  - **系统音频**：全局采集电脑正在播放的任何声音（网易云、浏览器、Spotify……），无需麦克风。基于 ScreenCaptureKit → Rust FFT 频谱管线
+  - **麦克风**：拾取环境声音驱动
+  - **本地音乐文件**：mp3 / wav / flac / m4a / aac / ogg
+- **六大配色主题**：夜色 · 霓虹东京 · 赛博森林 · 水墨（纸上落墨的反相渲染）· 极简单色 · 晨曦
+- **完整的场景层**：渐变天穹与星云、650 颗闪烁星与流星、环绕的极光帘、漂浮微尘、鼓点闪电、暗角胶片颗粒后期
+- **待机呼吸**：无音源时地面有缓慢流动的光浪与自动涟漪，壁纸始终是"活"的
+- **多显示器**：每个屏幕一个壁纸窗口，主题与律动全同步
+- **互动模式**：开启后壁纸可点击，点击地面激起涟漪；平时完全点击穿透，不影响桌面操作
+- **托盘控制**：音源切换 / 主题 / 时钟 / 互动模式，不占 Dock
+
+## 安装
+
+从 [Releases](../../releases) 下载 `.dmg`（Apple Silicon / macOS 13+），拖入"应用程序"即可。
+
+> 首次开启**系统音频**时，macOS 会请求"录屏与系统录音"权限（仅取声音，不录画面）。授权后**重启一次应用**生效。
+
+## 使用
+
+点击菜单栏托盘图标：
+
+| 菜单项 | 说明 |
+|---|---|
+| 选择音乐文件… | 播放本地音频驱动壁纸 |
+| 系统音频 | 全局听歌律动（推荐） |
+| 麦克风驱动 | 拾取环境声 |
+| 配色主题 | 六选一，随时切换 |
+| 显示时钟 | 桌面中央时钟 |
+| 互动模式 | 壁纸可点击，点地面出涟漪 |
+
+## 从源码构建
+
+依赖：Rust ≥ 1.77、Node ≥ 18、pnpm、Xcode 命令行工具
+
+```bash
+pnpm install
+pnpm tauri dev     # 开发运行
+pnpm tauri build   # 打包 .app / .dmg
+```
+
+调试小技巧：浏览器直接打开 `src/index.html?demo=1` 可用合成频谱预览视觉效果，无需真实音源。
+
+## 技术
+
+Tauri 2 + vanilla JS + three.js（本地 vendor，零运行时 CDN）。桌面层窗口（`kCGDesktopWindowLevel`）位于桌面图标之下、系统壁纸之上；系统音频链路为 Swift 助手（ScreenCaptureKit）→ Rust（rustfft，Blackman 窗）→ 47Hz 频谱事件 → WebGL shader。
+
+## 路线图
+
+- [ ] Windows 支持（WorkerW 壁纸注入 + WASAPI loopback）
+- [ ] 显示器热插拔
+- [ ] 遮挡时暂停渲染（省电）
+- [ ] 开机自启 / 签名公证
