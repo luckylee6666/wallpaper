@@ -1,44 +1,9 @@
 mod system_audio;
+mod wallpaper;
 
 use tauri::menu::{CheckMenuItem, MenuBuilder, MenuItem, SubmenuBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Listener, Manager, Wry};
-
-/// 设置 macOS 窗口层级。key: 2 = kCGDesktopWindowLevelKey（桌面层），4 = kCGNormalWindowLevelKey（普通层）。
-#[cfg(target_os = "macos")]
-fn set_window_level(window: &tauri::WebviewWindow, key: i32) {
-    use objc2::msg_send;
-    use objc2::runtime::AnyObject;
-
-    #[link(name = "CoreGraphics", kind = "framework")]
-    extern "C" {
-        fn CGWindowLevelForKey(key: i32) -> i32;
-    }
-
-    let Ok(ptr) = window.ns_window() else { return };
-    let ns_window = ptr as *mut AnyObject;
-    unsafe {
-        let level = CGWindowLevelForKey(key);
-        let _: () = msg_send![ns_window, setLevel: level as isize];
-    }
-}
-
-/// 把窗口钉在 macOS 桌面层（桌面图标之下、壁纸之上），
-/// 并让它出现在所有 Space、Mission Control 中保持不动。
-#[cfg(target_os = "macos")]
-fn set_desktop_level(window: &tauri::WebviewWindow) {
-    use objc2::msg_send;
-    use objc2::runtime::AnyObject;
-
-    set_window_level(window, 2);
-    let Ok(ptr) = window.ns_window() else { return };
-    let ns_window = ptr as *mut AnyObject;
-    unsafe {
-        // canJoinAllSpaces (1<<0) | stationary (1<<4) | ignoresCycle (1<<6)
-        let behavior: usize = (1 << 0) | (1 << 4) | (1 << 6);
-        let _: () = msg_send![ns_window, setCollectionBehavior: behavior];
-    }
-}
 
 /// 建托盘菜单；返回 (系统音频, 麦克风) 两个勾选项供状态同步。
 fn build_tray(app: &tauri::App) -> tauri::Result<(CheckMenuItem<Wry>, CheckMenuItem<Wry>)> {
@@ -133,10 +98,8 @@ fn build_tray(app: &tauri::App) -> tauri::Result<(CheckMenuItem<Wry>, CheckMenuI
                     // 所有壁纸窗口（主屏 + 各副屏）一起切换
                     for (_label, w) in app.webview_windows() {
                         let _ = w.set_ignore_cursor_events(!on);
-                        // 桌面层收不到点击（Finder 桌面图标层盖在上面），
-                        // 互动时临时升到普通层，退出互动降回桌面层
-                        #[cfg(target_os = "macos")]
-                        set_window_level(&w, if on { 4 } else { 2 });
+                        // 桌面层收不到点击（图标层盖在上面），互动时升到普通层，退出降回
+                        wallpaper::set_interactive(&w, on);
                         if on {
                             let _ = w.set_focus();
                         }
@@ -215,8 +178,7 @@ pub fn run() {
                 let _ = window.set_size(*monitor.size());
             }
 
-            #[cfg(target_os = "macos")]
-            set_desktop_level(&window);
+            wallpaper::attach(&window);
 
             // 壁纸默认点击穿透，桌面图标照常可用；托盘可切互动模式
             let _ = window.set_ignore_cursor_events(true);
@@ -246,8 +208,7 @@ pub fn run() {
                         Ok(w) => {
                             let _ = w.set_position(*m.position());
                             let _ = w.set_size(*m.size());
-                            #[cfg(target_os = "macos")]
-                            set_desktop_level(&w);
+                            wallpaper::attach(&w);
                             let _ = w.set_ignore_cursor_events(true);
                         }
                         Err(e) => eprintln!("[multi-display] create {label} failed: {e}"),
